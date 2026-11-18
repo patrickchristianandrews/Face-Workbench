@@ -2,10 +2,35 @@
 from __future__ import annotations
 
 import platform
+import shutil
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).parent.resolve()
+
+
+def ensure_static() -> Path:
+    """Ensure static/ exists with UI assets (supports flat-upload layout)."""
+    static = ROOT / "static"
+    static.mkdir(exist_ok=True)
+    mapping = {
+        "index.html": "index.html",
+        "app.js": "app.js",
+        "styles.css": "styles.css",
+        "manifest.json": "manifest.json",
+        "sw.js": "sw.js",
+    }
+    for name, root_name in mapping.items():
+        dest = static / name
+        if dest.exists() and dest.stat().st_size > 0:
+            continue
+        src = ROOT / root_name
+        if src.exists():
+            shutil.copy2(src, dest)
+            print(f"Copied {root_name} -> static/{name}")
+    if not (static / "index.html").exists():
+        print("WARNING: static/index.html missing")
+    return static
 
 
 def main():
@@ -15,8 +40,9 @@ def main():
         print("Install pyinstaller: pip install pyinstaller")
         sys.exit(1)
 
+    static = ensure_static()
     sep = ";" if platform.system() == "Windows" else ":"
-    datas = [f"{ROOT / 'static'}{sep}static"]
+    datas = [f"{static}{sep}static"]
     models = ROOT / "models"
     if models.is_dir() and any(models.iterdir()):
         datas.append(f"{models}{sep}models")
@@ -52,7 +78,7 @@ def main():
         "--exclude-module=nvidia",
     ]
     if platform.system() == "Windows":
-        args.append("--windowed")  # no console on Windows release
+        args.append("--console")  # show console so first-run errors are visible
     else:
         args.append("--console")
 
@@ -64,8 +90,14 @@ def main():
     out = ROOT / "dist" / "FaceWorkbench"
     print("=" * 50)
     print("OUTPUT:", out)
-    if (out / "FaceWorkbench.exe").exists():
-        print("EXE:", out / "FaceWorkbench.exe")
+    exe = out / ("FaceWorkbench.exe" if platform.system() == "Windows" else "FaceWorkbench")
+    if exe.exists():
+        print("EXE:", exe)
+    else:
+        print("WARNING: expected binary not found; listing dist:")
+        if out.exists():
+            for p in out.iterdir():
+                print(" ", p.name)
     print("=" * 50)
 
 
