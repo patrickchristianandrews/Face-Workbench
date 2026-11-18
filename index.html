@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#070B14" />
+  <title>FaceWorkbench Pro</title>
+  <link rel="manifest" href="/static/manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="logo">FaceWorkbench <span>Pro</span></div>
+      <div class="status-pill">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">Connecting…</span>
+        <span id="lanIp" class="muted"></span>
+        <span id="thrLabel" class="mono"></span>
+      </div>
+    </header>
+
+    <nav class="nav-rail" id="navRail">
+      <button class="nav-item active" data-ws="studio"><span class="num">01</span> Studio</button>
+      <button class="nav-item" data-ws="gallery"><span class="num">02</span> Identities</button>
+      <button class="nav-item" data-ws="lookalikes"><span class="num">03</span> Lookalikes</button>
+      <button class="nav-item" data-ws="behaviour"><span class="num">04</span> Behaviour</button>
+      <button class="nav-item" data-ws="video"><span class="num">05</span> Video & ReID</button>
+      <button class="nav-item" data-ws="calibration"><span class="num">06</span> Calibration</button>
+      <button class="nav-item" data-ws="osint"><span class="num">07</span> OSINT</button>
+      <button class="nav-item" data-ws="system"><span class="num">08</span> System</button>
+    </nav>
+
+    <main class="main">
+      <!-- 01 Studio -->
+      <section class="workspace active" id="ws-studio">
+        <div class="row mb gap">
+          <button class="btn primary" id="btnStudioMode" data-mode="search">1:N Gallery Search</button>
+          <button class="btn" id="btnVerifyMode">1:1 Verify</button>
+          <button class="btn sm" id="btnWebcam">Webcam</button>
+          <button class="btn sm" id="btnExportJson">Export JSON</button>
+        </div>
+        <div class="grid-2">
+          <div>
+            <div class="dropzone" id="studioDrop">
+              <p>Drop image or click to upload</p>
+              <p class="muted" style="font-size:12px;margin-top:6px">JPG · PNG · WEBP</p>
+              <input type="file" accept="image/*" id="studioFile" />
+            </div>
+            <div class="canvas-wrap mt" id="studioCanvasWrap">
+              <canvas id="studioCanvas"></canvas>
+            </div>
+            <div class="canvas-toolbar" id="studioToggles">
+              <button class="toggle-pill active" data-layer="bbox">Bounding Box & Pose</button>
+              <button class="toggle-pill active" data-layer="kps5">5-Point Keypoints</button>
+              <button class="toggle-pill" data-layer="mesh106">106-Point Mesh</button>
+              <button class="toggle-pill" data-layer="mesh3d">3D 68 Wireframe</button>
+            </div>
+          </div>
+          <div>
+            <div class="panel">
+              <div class="panel-title">Probe Quality</div>
+              <div class="row gap" id="qualityRadials"></div>
+              <div class="chips" id="qualityChips"></div>
+              <div class="chips mt" id="attrChips"></div>
+            </div>
+            <div class="panel" id="matchPanel">
+              <div class="panel-title">Matches / Verification</div>
+              <div id="matchResults"><p class="muted">Upload a probe image to search the gallery.</p></div>
+            </div>
+            <!-- Verify dual drop (hidden by default) -->
+            <div class="panel hidden" id="verifyPanel">
+              <div class="panel-title">1:1 Side-by-Side</div>
+              <div class="grid-2">
+                <div class="dropzone" id="verifyDropA"><p>Probe A</p><input type="file" accept="image/*" id="verifyFileA" /></div>
+                <div class="dropzone" id="verifyDropB"><p>Probe B</p><input type="file" accept="image/*" id="verifyFileB" /></div>
+              </div>
+              <button class="btn primary mt" id="btnRunVerify">Compare</button>
+              <div id="verifyResults" class="mt"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 02 Gallery -->
+      <section class="workspace" id="ws-gallery">
+        <div class="row mb gap">
+          <input type="text" id="peopleSearch" placeholder="Search identities…" style="max-width:240px" />
+          <button class="btn primary" id="btnEnroll">Enroll New Person</button>
+          <button class="btn" id="btnBatchIngest">Batch Folder Ingest</button>
+          <button class="btn" id="btnExportZip">Export Gallery ZIP</button>
+        </div>
+        <div class="people-grid" id="peopleGrid"></div>
+        <div class="panel mt hidden" id="personInspector">
+          <div class="row gap mb">
+            <h3 id="inspName"></h3>
+            <button class="btn sm" id="inspRename">Rename</button>
+            <button class="btn sm" id="inspAdd">Add Photos</button>
+            <button class="btn sm danger" id="inspDelete">Delete</button>
+            <button class="btn sm" id="inspClose">Close</button>
+          </div>
+          <div id="inspFaces" class="people-grid"></div>
+        </div>
+      </section>
+
+      <!-- 03 Lookalikes -->
+      <section class="workspace" id="ws-lookalikes">
+        <div class="panel">
+          <div class="panel-title">Top-K Lookalike Search</div>
+          <div class="dropzone" id="lookDrop"><p>Drop probe for unconstrained top-K search</p><input type="file" accept="image/*" id="lookFile" /></div>
+          <div class="field mt"><label>Top K: <span id="topKVal">10</span></label>
+            <input type="range" id="topK" min="3" max="30" value="10" />
+          </div>
+          <div id="lookResults" class="mt"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Unknown Face Clustering</div>
+          <p class="muted mb">Group unlabelled faces with DBSCAN (requires enrolled gallery).</p>
+          <button class="btn" id="btnCluster">Run Unknown Clustering</button>
+          <div id="clusterResults" class="mt"></div>
+        </div>
+      </section>
+
+      <!-- 04 Behaviour -->
+      <section class="workspace" id="ws-behaviour">
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">Facial Action Units (AU01–AU45)</div>
+            <p class="muted mb">Requires OpenFace models — values are illustrative when models are offline.</p>
+            <div id="auMeters"></div>
+          </div>
+          <div>
+            <div class="panel">
+              <div class="panel-title">Eye Gaze Compass</div>
+              <canvas id="gazeCanvas" width="240" height="240" style="display:block;margin:0 auto"></canvas>
+              <div class="row gap mt" style="justify-content:center">
+                <span class="mono" id="gazeX">gx: —</span>
+                <span class="mono" id="gazeY">gy: —</span>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-title">Head Pose (Roll / Yaw / Pitch)</div>
+              <div class="grid-3" id="poseGauges">
+                <div class="panel" style="text-align:center"><div class="muted">Roll</div><div class="mono" style="font-size:22px" id="poseRoll">—°</div></div>
+                <div class="panel" style="text-align:center"><div class="muted">Yaw</div><div class="mono" style="font-size:22px" id="poseYaw">—°</div></div>
+                <div class="panel" style="text-align:center"><div class="muted">Pitch</div><div class="mono" style="font-size:22px" id="posePitch">—°</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="dropzone mt" id="behDrop"><p>Upload image to estimate behaviour telemetry</p><input type="file" accept="image/*" id="behFile" /></div>
+      </section>
+
+      <!-- 05 Video -->
+      <section class="workspace" id="ws-video">
+        <div class="panel">
+          <div class="panel-title">Video Redaction</div>
+          <div class="dropzone" id="videoDrop"><p>Drop MP4 / video file</p><input type="file" accept="video/*" id="videoFile" /></div>
+          <div class="field mt">
+            <label>Mode</label>
+            <select id="redactMode">
+              <option value="blur_all">Mode 1 — Blur All Faces</option>
+              <option value="blur_matched">Mode 2 — Blur Matched Only</option>
+              <option value="keep_matched">Mode 3 — Keep Matched Sharp</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Target person IDs (comma-separated, for modes 2/3)</label>
+            <input type="text" id="targetIds" placeholder="uuid1, uuid2" />
+          </div>
+          <button class="btn primary" id="btnRedact">Process & Download</button>
+          <div id="videoProgress" class="muted mt"></div>
+        </div>
+      </section>
+
+      <!-- 06 Calibration -->
+      <section class="workspace" id="ws-calibration">
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">Threshold Calibration</div>
+            <div class="field"><label>Target FAR</label>
+              <select id="targetFar">
+                <option value="0.1">0.1</option>
+                <option value="0.01">0.01</option>
+                <option value="0.001" selected>0.001</option>
+                <option value="0.0001">0.0001</option>
+              </select>
+            </div>
+            <button class="btn primary" id="btnCalibrate">Auto-Calibrate Threshold</button>
+            <div id="calResult" class="mt mono"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Logistic Stacker</div>
+            <button class="btn" id="btnTrainStacker">Train Logistic Stacker</button>
+            <div id="stackerResult" class="mt mono"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">ROC Curve (TAR vs FAR)</div>
+          <canvas id="rocCanvas" width="640" height="360" style="max-width:100%"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Hard-Negative Mining</div>
+          <button class="btn sm" id="btnHardNeg">Scan Impostor Lookalikes</button>
+          <div id="hardNegTable" class="mt"></div>
+        </div>
+      </section>
+
+      <!-- 07 OSINT -->
+      <section class="workspace" id="ws-osint">
+        <div class="panel">
+          <div class="panel-title">Local EXIF / XMP Metadata</div>
+          <div class="dropzone" id="exifDrop"><p>Drop image for local metadata extraction</p><input type="file" accept="image/*" id="exifFile" /></div>
+          <pre id="exifOut" class="mono mt" style="font-size:11px;max-height:200px;overflow:auto;color:var(--text-secondary)"></pre>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Reverse Image Search Launchpad</div>
+          <div class="grid-3" id="engineCards"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Batch Open URLs</div>
+          <textarea id="urlBox" rows="4" placeholder="Paste result URLs, one per line"></textarea>
+          <button class="btn mt" id="btnOpenUrls">Open All Reviewed URLs</button>
+        </div>
+      </section>
+
+      <!-- 08 System -->
+      <section class="workspace" id="ws-system">
+        <div class="grid-2">
+          <div class="panel">
+            <div class="panel-title">Live Settings</div>
+            <div class="field"><label>Match Threshold <span id="thrVal" class="mono"></span></label>
+              <input type="range" id="cfgThr" min="0.10" max="0.95" step="0.01" />
+            </div>
+            <div class="field"><label>Detection Size</label>
+              <select id="cfgDetSize"><option>320</option><option selected>640</option><option>1024</option></select>
+            </div>
+            <div class="field"><label>Primary Detector</label>
+              <select id="cfgDetector"><option value="yunet">YuNet</option><option value="scrfd">SCRFD det_10g</option></select>
+            </div>
+            <div class="field"><label>CPU Threads <span id="thrThreads" class="mono"></span></label>
+              <input type="range" id="cfgThreads" min="1" max="16" step="1" />
+            </div>
+            <button class="btn primary" id="btnSaveCfg">Save Settings</button>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Ops</div>
+            <button class="btn" id="btnRebuildFaiss">Rebuild FAISS Indexes</button>
+            <button class="btn mt" id="btnExportZip2">Export Full Gallery ZIP</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Model Registry (16 Families)</div>
+          <table class="data" id="modelTable">
+            <thead><tr><th>Key</th><th>Family</th><th>Dim</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Enroll modal -->
+  <div class="modal-backdrop hidden" id="enrollModal">
+    <div class="modal">
+      <h3>Enroll New Person</h3>
+      <div class="field"><label>Name</label><input type="text" id="enrollName" placeholder="Full name" /></div>
+      <div class="dropzone" id="enrollDrop"><p>Drop one or more photos</p><input type="file" accept="image/*" multiple id="enrollFiles" /></div>
+      <div id="enrollPreview" class="muted mt"></div>
+      <div class="modal-actions">
+        <button class="btn" id="enrollCancel">Cancel</button>
+        <button class="btn primary" id="enrollSubmit">Enroll</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js').catch(()=>{});
+    }
+  </script>
+</body>
+</html>

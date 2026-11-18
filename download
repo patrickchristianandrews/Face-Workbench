@@ -1,0 +1,16 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+data/gallery.db
+data/crops/
+data/indexes/
+data/exports/
+*.part
+cert.pem
+key.pem
+config.json
+.DS_Store
